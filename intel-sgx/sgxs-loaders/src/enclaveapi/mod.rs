@@ -15,8 +15,10 @@ use winapi::um::winnt::{
     PAGE_READONLY, PAGE_READWRITE,
 };
 
-use sgx_isa::{Attributes, Einittoken, ErrorCode, Miscselect, PageType, SecinfoFlags, Secs, Sigstruct};
 use crate::generic::{self, EinittokenError, EnclaveLoad, Mapping};
+use sgx_isa::{
+    Attributes, Einittoken, ErrorCode, Miscselect, PageType, SecinfoFlags, Secs, Sigstruct,
+};
 use sgxs::einittoken::EinittokenProvider;
 use sgxs::loader;
 use sgxs::sgxs::{MeasEAdd, MeasECreate, PageChunks, SgxsRead};

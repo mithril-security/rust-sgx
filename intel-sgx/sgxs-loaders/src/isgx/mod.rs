@@ -15,16 +15,18 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::Arc;
 
-use nix::sys::mman::{mmap, munmap, ProtFlags as Prot, MapFlags as Map};
 use nix::errno::Errno;
+use nix::sys::mman::{mmap, munmap, MapFlags as Map, ProtFlags as Prot};
 
-use sgx_isa::{Attributes, Einittoken, ErrorCode, Miscselect, Secinfo, Secs, Sigstruct, PageType, SecinfoFlags};
+use sgx_isa::{
+    Attributes, Einittoken, ErrorCode, Miscselect, PageType, Secinfo, SecinfoFlags, Secs, Sigstruct,
+};
 use sgxs::einittoken::EinittokenProvider;
 use sgxs::loader;
 use sgxs::sgxs::{MeasEAdd, MeasECreate, PageChunks, SgxsRead};
 
-use crate::{MappingInfo, Tcs};
 use crate::generic::{self, EinittokenError, EnclaveLoad, Mapping};
+use crate::{MappingInfo, Tcs};
 
 /// A Linux SGX driver API family.
 ///
@@ -133,16 +135,15 @@ impl EnclaveLoad for InnerDevice {
         let esize = ecreate.size as usize;
         let ptr = unsafe {
             match device.driver {
-                Montgomery => {
-                    mmap(
-                        ptr::null_mut(),
-                        esize,
-                        Prot::PROT_READ | Prot::PROT_WRITE | Prot::PROT_EXEC,
-                        Map::MAP_SHARED,
-                        device.fd.as_raw_fd(),
-                        0,
-                    ).map_err(Error::map)?
-                },
+                Montgomery => mmap(
+                    ptr::null_mut(),
+                    esize,
+                    Prot::PROT_READ | Prot::PROT_WRITE | Prot::PROT_EXEC,
+                    Map::MAP_SHARED,
+                    device.fd.as_raw_fd(),
+                    0,
+                )
+                .map_err(Error::map)?,
                 Augusta => {
                     unsafe fn maybe_unmap(addr: *mut std::ffi::c_void, len: usize) {
                         if len == 0 {
@@ -163,7 +164,8 @@ impl EnclaveLoad for InnerDevice {
                         Map::MAP_SHARED | Map::MAP_ANONYMOUS | Map::MAP_NORESERVE,
                         0,
                         0,
-                    ).map_err(Error::map)?;
+                    )
+                    .map_err(Error::map)?;
 
                     let align_offset = ptr.align_offset(esize);
                     if align_offset > esize {
@@ -174,7 +176,7 @@ impl EnclaveLoad for InnerDevice {
                     maybe_unmap(newptr.add(esize), esize - align_offset);
 
                     newptr
-                },
+                }
             }
         };
 
@@ -220,8 +222,11 @@ impl EnclaveLoad for InnerDevice {
                     secinfo: &secinfo,
                     chunks: chunks.0,
                 };
-                ioctl_unsafe!(Add, ioctl::montgomery::add(mapping.device.fd.as_raw_fd(), &adddata))
-            },
+                ioctl_unsafe!(
+                    Add,
+                    ioctl::montgomery::add(mapping.device.fd.as_raw_fd(), &adddata)
+                )
+            }
             Augusta => {
                 let flags = match chunks.0 {
                     0 => ioctl::augusta::SgxPageFlags::empty(),
@@ -243,7 +248,10 @@ impl EnclaveLoad for InnerDevice {
                     flags,
                     count: 0,
                 };
-                ioctl_unsafe!(Add, ioctl::augusta::add(mapping.device.fd.as_raw_fd(), &mut adddata))?;
+                ioctl_unsafe!(
+                    Add,
+                    ioctl::augusta::add(mapping.device.fd.as_raw_fd(), &mut adddata)
+                )?;
                 assert_eq!(adddata.length, adddata.count);
 
                 let prot = match PageType::try_from(secinfo.flags.page_type()) {
@@ -260,9 +268,7 @@ impl EnclaveLoad for InnerDevice {
                         }
                         prot
                     }
-                    Ok(PageType::Tcs) => {
-                        Prot::PROT_READ | Prot::PROT_WRITE
-                    },
+                    Ok(PageType::Tcs) => Prot::PROT_READ | Prot::PROT_WRITE,
                     _ => unreachable!(),
                 };
 
@@ -285,8 +291,8 @@ impl EnclaveLoad for InnerDevice {
                         } else {
                             (None, Some(pending_mmap))
                         }
-                    },
-                    None => (None, None)
+                    }
+                    None => (None, None),
                 };
 
                 mapping.mapdata.pending_mmap = Some(pending.unwrap_or(PendingMmap { prot, range }));
@@ -322,13 +328,17 @@ impl EnclaveLoad for InnerDevice {
                         base: mapping.base,
                         sigstruct,
                     };
-                    ioctl_unsafe!(Init, ioctl::montgomery::init(mapping.device.fd.as_raw_fd(), &initdata))
-                },
+                    ioctl_unsafe!(
+                        Init,
+                        ioctl::montgomery::init(mapping.device.fd.as_raw_fd(), &initdata)
+                    )
+                }
                 Augusta => {
-                    let initdata = ioctl::augusta::InitData {
-                        sigstruct,
-                    };
-                    ioctl_unsafe!(Init, ioctl::augusta::init(mapping.device.fd.as_raw_fd(), &initdata))
+                    let initdata = ioctl::augusta::InitData { sigstruct };
+                    ioctl_unsafe!(
+                        Init,
+                        ioctl::augusta::init(mapping.device.fd.as_raw_fd(), &initdata)
+                    )
                 }
             }
         }
@@ -347,12 +357,13 @@ impl EnclaveLoad for InnerDevice {
                     };
                     ioctl_unsafe!(
                         Init,
-                        ioctl::montgomery::init_with_token(mapping.device.fd.as_raw_fd(), &initdata)
+                        ioctl::montgomery::init_with_token(
+                            mapping.device.fd.as_raw_fd(),
+                            &initdata
+                        )
                     )
-                },
-                Augusta => {
-                    Err(Error::Init(SgxIoctlError::Io(Errno::ENOTTY.into())))
                 }
+                Augusta => Err(Error::Init(SgxIoctlError::Io(Errno::ENOTTY.into()))),
             }
         }
 
@@ -382,7 +393,9 @@ impl EnclaveLoad for InnerDevice {
     }
 
     fn destroy(mapping: &mut Mapping<Self>) {
-        unsafe { let _ = munmap(mapping.base as usize as *mut _, mapping.size as usize); }
+        unsafe {
+            let _ = munmap(mapping.base as usize as *mut _, mapping.size as usize);
+        }
     }
 }
 
@@ -402,13 +415,15 @@ impl PendingMmap {
             Map::MAP_SHARED | Map::MAP_FIXED,
             device.fd.as_raw_fd(),
             0,
-        ).map(|_| ()).map_err(Error::map)
+        )
+        .map(|_| ())
+        .map_err(Error::map)
     }
 }
 
 #[derive(Debug, Default)]
 struct MapData {
-    pending_mmap: Option<PendingMmap>
+    pending_mmap: Option<PendingMmap>,
 }
 
 #[derive(Debug)]
@@ -421,7 +436,11 @@ struct InnerDevice {
 impl Clone for InnerDevice {
     fn clone(&self) -> Self {
         InnerDevice {
-            fd: OpenOptions::new().read(true).write(true).open(&**self.path).unwrap(),
+            fd: OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&**self.path)
+                .unwrap(),
             path: self.path.clone(),
             driver: self.driver,
         }
@@ -455,7 +474,10 @@ impl Device {
             }
         }
 
-        Err(IoError::new(io::ErrorKind::NotFound, "None of the default SGX device paths were found"))
+        Err(IoError::new(
+            io::ErrorKind::NotFound,
+            "None of the default SGX device paths were found",
+        ))
     }
 
     pub fn open<T: AsRef<Path>>(path: T, driver: DriverFamily) -> IoResult<DeviceBuilder> {

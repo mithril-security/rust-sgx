@@ -7,7 +7,7 @@
 pub extern crate libloading as dl;
 
 use std::convert::TryFrom;
-use std::io::{Result as IoResult, Error as IoError};
+use std::io::{Error as IoError, Result as IoResult};
 use std::os::raw::c_void;
 use std::sync::Arc;
 use std::{fmt, mem, ptr};
@@ -17,8 +17,8 @@ use sgxs::einittoken::EinittokenProvider;
 use sgxs::loader;
 use sgxs::sgxs::{MeasEAdd, MeasECreate, PageChunks, SgxsRead};
 
-use crate::{MappingInfo, Tcs};
 use crate::generic::{self, EinittokenError, EnclaveLoad, Mapping};
+use crate::{MappingInfo, Tcs};
 
 mod defs;
 

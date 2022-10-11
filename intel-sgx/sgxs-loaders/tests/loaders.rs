@@ -13,7 +13,7 @@ macro_rules! test_loader {
             .build();
 
         report_test::report(&Default::default(), &mut loader).expect("error getting report");
-    }
+    };
 }
 
 #[cfg_attr(not(target_os = "windows"), ignore)]

@@ -60,32 +60,32 @@ pub(crate) fn coenter<T: Tcs>(
 ) -> ThreadResult<T> {
     /// Check if __vdso_sgx_enter_enclave exists. We're using weak linkage, so
     /// it might not.
-    #[cfg(target_os = "linux")]
-    fn has_vdso_sgx_enter_enclave() -> bool {
-        unsafe {
-            let addr: usize;
-            asm!("
-.weak __vdso_sgx_enter_enclave
-.type __vdso_sgx_enter_enclave, function
-                mov __vdso_sgx_enter_enclave@GOTPCREL(%rip), {}
-                jmp 1f
+    // #[cfg(target_os = "linux")]
+//     fn has_vdso_sgx_enter_enclave() -> bool {
+//         unsafe {
+//             let addr: usize;
+//             asm!("
+// .weak __vdso_sgx_enter_enclave
+// .type __vdso_sgx_enter_enclave, function
+//                 mov __vdso_sgx_enter_enclave@GOTPCREL(%rip), {}
+//                 jmp 1f
 
-                // Strongly link to another symbol in the VDSO, so that the
-                // linker will include a DT_NEEDED entry for `linux-vdso.so.1`.
-                // This doesn't happen automatically because rustc passes
-                // `--as-needed` to the linker. This is never executed because
-                // of the unconditional jump above.
-.global __vdso_clock_gettime
-.type __vdso_clock_gettime, function
-                call __vdso_clock_gettime@PLT
+//                 // Strongly link to another symbol in the VDSO, so that the
+//                 // linker will include a DT_NEEDED entry for `linux-vdso.so.1`.
+//                 // This doesn't happen automatically because rustc passes
+//                 // `--as-needed` to the linker. This is never executed because
+//                 // of the unconditional jump above.
+// .global __vdso_clock_gettime
+// .type __vdso_clock_gettime, function
+//                 call __vdso_clock_gettime@PLT
 
-1:
-                ", out(reg) addr, options(nomem, nostack, att_syntax));
-            addr != 0
-        }
-    }
+// 1:
+//                 ", out(reg) addr, options(nomem, nostack, att_syntax));
+//             addr != 0
+//         }
+//     }
 
-    #[cfg(not(target_os = "linux"))]
+    // #[cfg(not(target_os = "linux"))]
     fn has_vdso_sgx_enter_enclave() -> bool {
         false
     }
