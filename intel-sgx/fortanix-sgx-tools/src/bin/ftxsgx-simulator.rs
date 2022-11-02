@@ -10,19 +10,14 @@
  #[cfg(unix)]
  use std::io::{stderr, Write};
  
- use aesm_client::AesmClient;
  use enclave_runner::EnclaveBuilder;
  use failure::{Error, ResultExt};
  #[cfg(unix)]
  use libc::{c_int, c_void, siginfo_t};
  #[cfg(unix)]
  use nix::sys::signal;
- #[cfg(unix)]
- use sgxs_loaders::isgx::Device as IsgxDevice;
- #[cfg(windows)]
- use sgxs_loaders::enclaveapi::Sgx as IsgxDevice;
- 
- use clap::{App, Arg};
+
+use clap::{App, Arg};
 use sgxs_loaders::sim::Simulator;
  
  arg_enum!{

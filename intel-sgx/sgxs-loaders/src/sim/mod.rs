@@ -11,9 +11,8 @@
 //! **Note**: Using this module will install various signal handlers. These
 //! might conflict with other signal handlers your application uses.
 
-use std::collections::{BTreeMap, HashMap};
-use std::convert::TryFrom;
-use std::sync::{Mutex, MutexGuard};
+use std::collections::{HashMap};
+use spin::{Mutex, MutexGuard};
 use std::{alloc, cell::Cell, io, num::NonZeroU64, ptr};
 
 use nix::libc::{self, c_int, c_ulong, c_void};
@@ -25,7 +24,7 @@ pub use self::loader::{Error, Simulator};
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref SIMULATED_ENCLAVES: Mutex<BTreeMap<u64, Enclave>> = {
+    static ref SIMULATED_ENCLAVES: Mutex<Option<(u64, Enclave)>> = {
         init_signal_handlers();
         Default::default()
     };
@@ -53,18 +52,17 @@ struct Enclave {
 const ENCLU: [u8; 3] = [0x0f, 0x01, 0xd7];
 
 fn find_enclave_by_address<'a>(
-    map: &'a mut MutexGuard<'static, BTreeMap<u64, Enclave>>,
+    map: &'a mut MutexGuard<'static, Option<(u64, Enclave)>>,
     address: u64,
 ) -> Option<&'a mut Enclave> {
-    map.range_mut(..address)
-        .next_back()
-        .and_then(|(_, enclave)| {
-            if enclave.base <= address && (enclave.base + enclave.size) > address {
-                Some(enclave)
-            } else {
-                None
-            }
-        })
+    match &mut **map {
+        Some((enlave_address, enclave)) => {if enclave.base <= address && (enclave.base + enclave.size) > address {
+                        Some(enclave)
+                    } else {
+                        None
+                    }}
+        None => None
+    }
 }
 
 extern "C" fn handle_signal(signo: c_int, _info: *mut libc::siginfo_t, context: *mut c_void) {
@@ -89,8 +87,9 @@ extern "C" fn handle_signal(signo: c_int, _info: *mut libc::siginfo_t, context: 
         let rip = context.uc_mcontext.gregs[Greg::RIP as usize] as u64;
         let insn_is_enclu = ptr::read(rip as *const [u8; 3]) == ENCLU;
         let insn_in_enclave =
-            find_enclave_by_address(&mut SIMULATED_ENCLAVES.lock().unwrap(), rip).map(|e| e.base);
+            find_enclave_by_address(&mut SIMULATED_ENCLAVES.lock(), rip).map(|e| e.base);
         // println!("{:?}", Enclu::try_from(context.uc_mcontext.gregs[Greg::RAX as usize] as u32));
+
         match (insn_is_enclu, insn_in_enclave) {
             (true, None) => {
                 let rax = context.uc_mcontext.gregs[Greg::RAX as usize];
@@ -98,7 +97,7 @@ extern "C" fn handle_signal(signo: c_int, _info: *mut libc::siginfo_t, context: 
                     let rbx = context.uc_mcontext.gregs[Greg::RBX as usize] as u64;
                     let rcx = context.uc_mcontext.gregs[Greg::RBX as usize] as u64;
                     if let Some(enclave) =
-                        find_enclave_by_address(&mut SIMULATED_ENCLAVES.lock().unwrap(), rbx)
+                        find_enclave_by_address(&mut SIMULATED_ENCLAVES.lock(), rbx)
                     {
                         if let Some(tcsstate) = enclave.tcss.get_mut(&rbx) {
                             if rax == Enclu::EResume as i64 {
@@ -144,7 +143,7 @@ extern "C" fn handle_signal(signo: c_int, _info: *mut libc::siginfo_t, context: 
                             rip
                         ),
                     };
-                    let mut lock = SIMULATED_ENCLAVES.lock().unwrap();
+                    let mut lock = SIMULATED_ENCLAVES.lock();
                     let enclave =
                         find_enclave_by_address(&mut lock, tcs).expect("Enclave not found");
                     let (oldgs, aep) = match enclave.tcss[&tcs] {

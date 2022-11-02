@@ -112,7 +112,7 @@ impl EnclaveLoad for InnerDevice {
     ) -> Result<(), Self::Error> {
         // TODO: measure
 
-        SIMULATED_ENCLAVES.lock().unwrap().insert(
+        *SIMULATED_ENCLAVES.lock() = Some((
             mapping.base,
             Enclave {
                 base: mapping.base,
@@ -123,13 +123,13 @@ impl EnclaveLoad for InnerDevice {
                     .map(|&a| (a, Default::default()))
                     .collect(),
             },
-        );
+        ));
 
         Ok(())
     }
 
     fn destroy(mapping: &mut Mapping<Self>) {
-        SIMULATED_ENCLAVES.lock().unwrap().remove(&mapping.base);
+        *SIMULATED_ENCLAVES.lock() = None;
         unsafe { munmap(mapping.base as usize as *mut _, mapping.size as usize) }.unwrap();
     }
 }
