@@ -24,6 +24,7 @@ use sgxs::crypto::{SgxHashOps, SgxRsaOps};
 use sgxs::loader::{Load, MappingInfo, Tcs};
 use sgxs::sigstruct::{self, EnclaveHash, Signer};
 
+use crate::command::ExecutionMode;
 use crate::tcs::DebugBuffer;
 use crate::usercalls::UsercallExtension;
 use crate::{Command, Library};
@@ -331,11 +332,11 @@ impl<'a> EnclaveBuilder<'a> {
         ))
     }
 
-    pub fn build<T: Load>(mut self, loader: &mut T) -> Result<Command, Error> {
+    pub fn build<T: Load>(mut self, loader: &mut T, execution_mode: ExecutionMode) -> Result<Command, Error> {
         let args = self.cmd_args.take().unwrap_or_default();
         let c = self.usercall_ext.take();
         self.load(loader)
-            .map(|(t, a, s, fp)| Command::internal_new(t, a, s, c, fp, args))
+            .map(|(t, a, s, fp)| Command::internal_new(t, a, s, c, fp, execution_mode,args))
     }
 
     /// Panics if you have previously called [`arg`] or [`args`].

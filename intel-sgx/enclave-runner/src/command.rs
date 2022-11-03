@@ -14,6 +14,12 @@ use crate::usercalls::EnclaveState;
 use crate::usercalls::UsercallExtension;
 use std::os::raw::c_void;
 
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum ExecutionMode {
+    Normal,
+    Simulation
+}
+
 #[derive(Debug)]
 pub struct Command {
     main: ErasedTcs,
@@ -22,6 +28,7 @@ pub struct Command {
     size: usize,
     usercall_ext: Option<Box<dyn UsercallExtension>>,
     forward_panics: bool,
+    execution_mode: ExecutionMode,
     cmd_args: Vec<Vec<u8>>,
 }
 
@@ -44,6 +51,7 @@ impl Command {
         size: usize,
         usercall_ext: Option<Box<dyn UsercallExtension>>,
         forward_panics: bool,
+        execution_mode: ExecutionMode,
         cmd_args: Vec<Vec<u8>>,
     ) -> Command {
         let main = tcss.remove(0);
@@ -54,15 +62,16 @@ impl Command {
             size,
             usercall_ext,
             forward_panics,
+            execution_mode,
             cmd_args,
         }
     }
 
-    pub fn new<P: AsRef<Path>, L: Load>(enclave_path: P, loader: &mut L) -> Result<Command, Error> {
-        EnclaveBuilder::new(enclave_path.as_ref()).build(loader)
+    pub fn new<P: AsRef<Path>, L: Load>(enclave_path: P, loader: &mut L, execution_mode: ExecutionMode) -> Result<Command, Error> {
+        EnclaveBuilder::new(enclave_path.as_ref()).build(loader, execution_mode)
     }
 
     pub fn run(self) -> Result<(), Error> {
-        EnclaveState::main_entry(self.main, self.threads, self.usercall_ext, self.forward_panics, self.cmd_args)
+        EnclaveState::main_entry(self.main, self.threads, self.usercall_ext, self.forward_panics, self.execution_mode, self.cmd_args)
     }
 }

@@ -56,7 +56,7 @@ fn find_enclave_by_address<'a>(
     address: u64,
 ) -> Option<&'a mut Enclave> {
     match &mut **map {
-        Some((enlave_address, enclave)) => {if enclave.base <= address && (enclave.base + enclave.size) > address {
+        Some((_enlave_address, enclave)) => {if enclave.base <= address && (enclave.base + enclave.size) > address {
                         Some(enclave)
                     } else {
                         None
@@ -66,6 +66,7 @@ fn find_enclave_by_address<'a>(
 }
 
 extern "C" fn handle_signal(signo: c_int, _info: *mut libc::siginfo_t, context: *mut c_void) {
+    #[allow(clashing_extern_declarations)]
     extern "C" {
         #[link_name = "arch_prctl"]
         fn arch_prctl_set(code: c_int, addr: c_ulong) -> c_int;

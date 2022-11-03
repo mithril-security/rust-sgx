@@ -11,7 +11,7 @@ extern crate clap;
 use std::io::{stderr, Write};
 
 use aesm_client::AesmClient;
-use enclave_runner::EnclaveBuilder;
+use enclave_runner::{EnclaveBuilder, ExecutionMode};
 use failure::{Error, ResultExt};
 #[cfg(unix)]
 use libc::{c_int, c_void, siginfo_t};
@@ -85,7 +85,7 @@ fn main() -> Result<(), Error> {
         enclave_builder.args(enclave_args);
     }
 
-    let enclave = enclave_builder.build(&mut device).context("While loading SGX enclave")?;
+    let enclave = enclave_builder.build(&mut device, ExecutionMode::Normal).context("While loading SGX enclave")?;
 
     #[cfg(unix)] catch_sigbus();
 

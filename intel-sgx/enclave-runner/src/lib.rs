@@ -20,3 +20,4 @@ pub mod usercalls;
 pub use crate::command::Command;
 pub use crate::library::Library;
 pub use crate::loader::{EnclaveBuilder, EnclavePanic};
+pub use crate::command::ExecutionMode;

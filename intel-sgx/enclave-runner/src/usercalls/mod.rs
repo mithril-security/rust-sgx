@@ -37,6 +37,7 @@ use fortanix_sgx_abi::*;
 use ipc_queue::{self, DescriptorGuard, Identified, QueueEvent};
 use sgxs::loader::Tcs as SgxsTcs;
 
+use crate::command::ExecutionMode;
 use crate::loader::{EnclavePanic, ErasedTcs};
 use crate::tcs::{self, CoResult, ThreadResult};
 use self::abi::dispatch;
@@ -667,15 +668,15 @@ enum CoEntry {
 }
 
 impl Work {
-    fn do_work(self, io_send_queue: &mut tokio::sync::mpsc::UnboundedSender<UsercallSendData>) {
+    fn do_work(self, execution_mode: ExecutionMode, io_send_queue: &mut tokio::sync::mpsc::UnboundedSender<UsercallSendData>) {
         let buf = RefCell::new([0u8; 1024]);
         let usercall_send_data = match self.entry {
             CoEntry::Initial(erased_tcs, p1, p2, p3, p4, p5) => {
-                let coresult = tcs::coenter(erased_tcs, p1, p2, p3, p4, p5, Some(&buf));
+                let coresult = tcs::coenter::<ErasedTcs>(execution_mode, erased_tcs, p1, p2, p3, p4, p5, Some(&buf));
                 UsercallSendData::Sync(coresult, self.tcs, buf)
             }
             CoEntry::Resume(usercall, coresult) => {
-                let coresult = usercall.coreturn(coresult, Some(&buf));
+                let coresult = usercall.coreturn(execution_mode, coresult, Some(&buf));
                 UsercallSendData::Sync(coresult, self.tcs, buf)
             }
         };
@@ -956,11 +957,13 @@ impl EnclaveState {
     }
 
     fn run(
+        execution_mode: ExecutionMode,
         enclave: Arc<EnclaveState>,
         num_of_worker_threads: usize,
         start_work: Work,
     ) -> EnclaveResult {
         fn create_worker_threads(
+            execution_mode: ExecutionMode,
             num_of_worker_threads: usize,
             work_receiver: crossbeam::crossbeam_channel::Receiver<Work>,
             io_queue_send: tokio::sync::mpsc::UnboundedSender<UsercallSendData>,
@@ -972,7 +975,7 @@ impl EnclaveState {
 
                 thread_handles.push(thread::spawn(move || {
                     while let Ok(work) = work_receiver.recv() {
-                        work.do_work(&mut io_queue_send);
+                        work.do_work(execution_mode, &mut io_queue_send);
                     }
                 }));
             }
@@ -987,7 +990,7 @@ impl EnclaveState {
             .expect("Work sender couldn't send data to receiver");
 
         let join_handlers =
-            create_worker_threads(num_of_worker_threads, work_receiver, io_queue_send.clone());
+            create_worker_threads(execution_mode,num_of_worker_threads, work_receiver, io_queue_send.clone());
         // main syscall polling loop
         let main_result =
             EnclaveState::syscall_loop(enclave.clone(), io_queue_receive, io_queue_send, work_sender);
@@ -1003,6 +1006,7 @@ impl EnclaveState {
         threads: Vec<ErasedTcs>,
         usercall_ext: Option<Box<dyn UsercallExtension>>,
         forward_panics: bool,
+        execution_mode: ExecutionMode,
         cmd_args: Vec<Vec<u8>>,
     ) -> StdResult<(), failure::Error> {
         let mut event_queues =
@@ -1037,7 +1041,7 @@ impl EnclaveState {
         });
         let enclave = EnclaveState::new(kind, event_queues, usercall_ext, threads, forward_panics);
 
-        let main_result = EnclaveState::run(enclave.clone(), num_of_worker_threads, main_work);
+        let main_result = EnclaveState::run(execution_mode, enclave.clone(), num_of_worker_threads, main_work);
 
         let main_panicking = match main_result {
             Err(EnclaveAbort::MainReturned)
@@ -1097,6 +1101,7 @@ impl EnclaveState {
     }
 
     pub(crate) fn library_entry(
+        execution_mode: ExecutionMode,
         enclave: &Arc<Self>,
         p1: u64,
         p2: u64,
@@ -1116,7 +1121,7 @@ impl EnclaveState {
         // one for usercall handling the other for actually running
         let num_of_worker_threads = 1;
 
-        let library_result = EnclaveState::run(enclave.clone(), num_of_worker_threads, work);
+        let library_result = EnclaveState::run(execution_mode, enclave.clone(), num_of_worker_threads, work);
 
         match library_result {
             Err(EnclaveAbort::Exit { panic: None }) => bail!("This thread aborted execution"),

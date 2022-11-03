@@ -15,6 +15,8 @@ use std::os::raw::c_void;
 use sgx_isa::Enclu;
 use sgxs::loader::Tcs;
 
+use crate::command::ExecutionMode::{Simulation, self};
+
 pub(crate) type DebugBuffer = [u8; 1024];
 
 #[derive(Debug)]
@@ -38,10 +40,11 @@ impl<T: Tcs> Usercall<T> {
 
     pub fn coreturn(
         self,
+        execution_mode:  ExecutionMode,
         retval: (u64, u64),
         debug_buf: Option<&RefCell<DebugBuffer>>,
     ) -> ThreadResult<T> {
-        coenter(self.tcs, 0, retval.0, retval.1, 0, 0, debug_buf)
+        coenter(execution_mode, self.tcs, 0, retval.0, retval.1, 0, 0, debug_buf)
     }
 
     pub fn tcs_address(&self) -> *mut c_void {
@@ -50,6 +53,7 @@ impl<T: Tcs> Usercall<T> {
 }
 
 pub(crate) fn coenter<T: Tcs>(
+    execution_mode: ExecutionMode,
     tcs: T,
     mut p1: u64,
     mut p2: u64,
@@ -60,32 +64,32 @@ pub(crate) fn coenter<T: Tcs>(
 ) -> ThreadResult<T> {
     /// Check if __vdso_sgx_enter_enclave exists. We're using weak linkage, so
     /// it might not.
-    // #[cfg(target_os = "linux")]
-//     fn has_vdso_sgx_enter_enclave() -> bool {
-//         unsafe {
-//             let addr: usize;
-//             asm!("
-// .weak __vdso_sgx_enter_enclave
-// .type __vdso_sgx_enter_enclave, function
-//                 mov __vdso_sgx_enter_enclave@GOTPCREL(%rip), {}
-//                 jmp 1f
+    #[cfg(target_os = "linux")]
+    fn has_vdso_sgx_enter_enclave() -> bool {
+        unsafe {
+            let addr: usize;
+            asm!("
+.weak __vdso_sgx_enter_enclave
+.type __vdso_sgx_enter_enclave, function
+                mov __vdso_sgx_enter_enclave@GOTPCREL(%rip), {}
+                jmp 1f
 
-//                 // Strongly link to another symbol in the VDSO, so that the
-//                 // linker will include a DT_NEEDED entry for `linux-vdso.so.1`.
-//                 // This doesn't happen automatically because rustc passes
-//                 // `--as-needed` to the linker. This is never executed because
-//                 // of the unconditional jump above.
-// .global __vdso_clock_gettime
-// .type __vdso_clock_gettime, function
-//                 call __vdso_clock_gettime@PLT
+                // Strongly link to another symbol in the VDSO, so that the
+                // linker will include a DT_NEEDED entry for `linux-vdso.so.1`.
+                // This doesn't happen automatically because rustc passes
+                // `--as-needed` to the linker. This is never executed because
+                // of the unconditional jump above.
+.global __vdso_clock_gettime
+.type __vdso_clock_gettime, function
+                call __vdso_clock_gettime@PLT
 
-// 1:
-//                 ", out(reg) addr, options(nomem, nostack, att_syntax));
-//             addr != 0
-//         }
-//     }
+1:
+                ", out(reg) addr, options(nomem, nostack, att_syntax));
+            addr != 0
+        }
+    }
 
-    // #[cfg(not(target_os = "linux"))]
+    #[cfg(not(target_os = "linux"))]
     fn has_vdso_sgx_enter_enclave() -> bool {
         false
     }
@@ -102,7 +106,7 @@ pub(crate) fn coenter<T: Tcs>(
                 uninit_debug_buf.as_mut_ptr() as *mut _
             }
         };
-        if has_vdso_sgx_enter_enclave() {
+        if execution_mode != Simulation && has_vdso_sgx_enter_enclave() {
             #[repr(C)]
             #[derive(Default)]
             struct SgxEnclaveRun {

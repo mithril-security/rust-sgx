@@ -10,6 +10,7 @@ use std::sync::Arc;
 use failure::Error;
 use sgxs::loader::{Load, MappingInfo};
 
+use crate::command::ExecutionMode;
 use crate::loader::{EnclaveBuilder, ErasedTcs};
 use crate::usercalls::EnclaveState;
 use crate::usercalls::UsercallExtension;
@@ -69,12 +70,13 @@ impl Library {
     /// enclave is expecting.
     pub unsafe fn call(
         &self,
+        execution_mode: ExecutionMode,
         p1: u64,
         p2: u64,
         p3: u64,
         p4: u64,
         p5: u64,
     ) -> Result<(u64, u64), Error> {
-        EnclaveState::library_entry(&self.enclave, p1, p2, p3, p4, p5)
+        EnclaveState::library_entry(execution_mode, &self.enclave, p1, p2, p3, p4, p5)
     }
 }

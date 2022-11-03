@@ -10,7 +10,7 @@
  #[cfg(unix)]
  use std::io::{stderr, Write};
  
- use enclave_runner::EnclaveBuilder;
+ use enclave_runner::{EnclaveBuilder, ExecutionMode};
  use failure::{Error, ResultExt};
  #[cfg(unix)]
  use libc::{c_int, c_void, siginfo_t};
@@ -19,7 +19,7 @@
 
 use clap::{App, Arg};
 use sgxs_loaders::sim::Simulator;
- 
+
  arg_enum!{
      #[derive(PartialEq, Debug)]
      #[allow(non_camel_case_types)]
@@ -78,7 +78,7 @@ use sgxs_loaders::sim::Simulator;
          enclave_builder.args(enclave_args);
      }
  
-     let enclave = enclave_builder.build(&mut device).context("While loading SGX enclave")?;
+     let enclave = enclave_builder.build(&mut device, ExecutionMode::Simulation).context("While loading SGX enclave")?;
  
      #[cfg(unix)] catch_sigbus();
  
