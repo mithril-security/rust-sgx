@@ -15,7 +15,7 @@ extern crate sgxs;
 
 use failure::{Error, ResultExt};
 
-use enclave_runner::EnclaveBuilder;
+use enclave_runner::{EnclaveBuilder, ExecutionMode};
 use sgx_isa::{PageType, Report, SecinfoFlags, Targetinfo, Attributes, AttributesFlags, Miscselect};
 use sgxs::loader::Load;
 use sgxs::sgxs::{PageChunk, SecinfoTruncated, SgxsWrite};
@@ -76,7 +76,7 @@ impl ReportBuilder {
             builder
                 .build_library(enclave_loader)
                 .context("failed to load report enclave")?
-                .call(&mut report as *mut _ as _, 0, 0, 0, 0)
+                .call(ExecutionMode::Normal, &mut report as *mut _ as _, 0, 0, 0, 0)
                 .context("failed to call report enclave")?;
             Ok(report)
         }

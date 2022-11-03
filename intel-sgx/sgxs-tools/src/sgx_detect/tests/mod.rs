@@ -7,6 +7,7 @@ use std::io::ErrorKind;
 use std::io::Error as IoError;
 use std::process;
 
+use enclave_runner::ExecutionMode;
 use failure::Error;
 use petgraph::visit::EdgeRef;
 
@@ -785,7 +786,7 @@ impl RunEnclaveProdWl {
         let lib = builder.build_library(enclave_loader)?;
 
         unsafe {
-            match lib.call(!0, 0, 0, 0, 0) {
+            match lib.call(ExecutionMode::Normal, !0, 0, 0, 0, 0) {
                 Err(ref e) if e.to_string().contains("The enclave performed an invalid usercall 0x") => Ok(()),
                 Err(e) => Err(e.into()),
                 Ok(_) => Err(format_err!("Unexpected enclave return value")),
