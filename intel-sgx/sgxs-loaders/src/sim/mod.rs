@@ -11,8 +11,8 @@
 //! **Note**: Using this module will install various signal handlers. These
 //! might conflict with other signal handlers your application uses.
 
-use std::collections::{HashMap};
 use spin::{Mutex, MutexGuard};
+use std::collections::HashMap;
 use std::{alloc, cell::Cell, io, num::NonZeroU64, ptr};
 
 use nix::libc::{self, c_int, c_ulong, c_void};
@@ -56,12 +56,14 @@ fn find_enclave_by_address<'a>(
     address: u64,
 ) -> Option<&'a mut Enclave> {
     match &mut **map {
-        Some((_enlave_address, enclave)) => {if enclave.base <= address && (enclave.base + enclave.size) > address {
-                        Some(enclave)
-                    } else {
-                        None
-                    }}
-        None => None
+        Some((_enlave_address, enclave)) => {
+            if enclave.base <= address && (enclave.base + enclave.size) > address {
+                Some(enclave)
+            } else {
+                None
+            }
+        }
+        None => None,
     }
 }
 
