@@ -64,7 +64,7 @@ pub(crate) fn coenter<T: Tcs>(
 ) -> ThreadResult<T> {
     /// Check if __vdso_sgx_enter_enclave exists. We're using weak linkage, so
     /// it might not.
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(feature="no-libvdso")))]
     fn has_vdso_sgx_enter_enclave() -> bool {
         unsafe {
             let addr: usize;
@@ -89,7 +89,7 @@ pub(crate) fn coenter<T: Tcs>(
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(all(target_os = "linux", not(feature="no-libvdso"))))]
     fn has_vdso_sgx_enter_enclave() -> bool {
         false
     }

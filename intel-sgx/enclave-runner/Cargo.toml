@@ -41,3 +41,9 @@ futures = { version = "0.3", features = ["compat", "io-compat"] } # MIT/Apache-2
 [features]
 default = ["crypto-openssl"]
 crypto-openssl = ["openssl", "sgxs/crypto-openssl"]
+
+
+# This feature is used by fortanix-sgx-simulator.
+# The simulator does not need libvDSO and it causes
+# issues with valgrind (valgrind does not support VDSO as of now). 
+no-libvdso = []

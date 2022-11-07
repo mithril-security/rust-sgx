@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 
 fn main() {
-    if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "linux" {
+    if !cfg!(feature="no-libvdso") && std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "linux" {
         const LIBNAME: &str = "fortanix_enclave_runner_fake_vdso";
         // using var instead of var_os because we need to print it later
         let out_dir = std::env::var("OUT_DIR").unwrap();
