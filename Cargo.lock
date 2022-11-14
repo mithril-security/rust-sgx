@@ -125,6 +125,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base16"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d27c3610c36aee21ce8ac510e6224498de4228ad772a171ed65643a24693a5a8"
+
+[[package]]
 name = "base64"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -931,6 +937,27 @@ dependencies = [
 
 [[package]]
 name = "fortanix-sgx-tools"
+version = "0.5.1"
+dependencies = [
+ "aesm-client",
+ "clap",
+ "enclave-runner",
+ "failure",
+ "failure_derive",
+ "libc",
+ "nix 0.13.1",
+ "num_cpus",
+ "serde",
+ "serde_derive 1.0.147",
+ "sgx-isa",
+ "sgxs",
+ "sgxs-loaders",
+ "toml",
+ "xmas-elf",
+]
+
+[[package]]
+name = "ftxsgx-simulator"
 version = "0.5.1"
 dependencies = [
  "aesm-client",
@@ -2871,6 +2898,7 @@ version = "0.8.6"
 dependencies = [
  "aesm-client",
  "atty",
+ "base16",
  "broadcast",
  "byteorder",
  "clap",

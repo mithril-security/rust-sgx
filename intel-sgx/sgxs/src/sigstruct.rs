@@ -16,7 +16,7 @@ use sgxs::{copy_measured, SgxsRead};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct EnclaveHash {
-    hash: Hash,
+    pub hash: Hash,
 }
 
 impl EnclaveHash {
